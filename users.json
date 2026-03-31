@@ -1,12 +1,3 @@
 {
-  "users": [
-    {
-      "username": "Лиза",
-      "password": "$2b$10$vKugopdgRc7hLyBxZl9oVeBl4tmovWwLOdk5ujAeeA3inyp5.1Gya"
-    },
-    {
-      "username": "im293356@gmail.com",
-      "password": "$2b$10$Dm9VvYkl8k.f3./xD7rV0.z891xt0a0Sv2Xcsh.3gCegkf4p3gKfW"
-    }
-  ]
+  "users": []
 }
