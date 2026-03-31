@@ -5,7 +5,6 @@ const io = require("socket.io")(http);
 const { Low, JSONFile } = require("lowdb");
 const bcrypt = require("bcrypt");
 
-// Инициализация баз данных
 const usersDB = new Low(new JSONFile("users.json"));
 const messagesDB = new Low(new JSONFile("db.json"));
 
@@ -13,9 +12,7 @@ let onlineUsers = [];
 
 app.use(express.static("public"));
 
-// Функция инициализации и запуска
 async function init() {
-    // Читаем данные и задаем структуру по умолчанию, если файлы пустые
     await usersDB.read();
     usersDB.data ||= { users: [] };
     await usersDB.write();
@@ -25,6 +22,7 @@ async function init() {
     await messagesDB.write();
 
     io.on("connection", (socket) => {
+
         // Регистрация
         socket.on("register", async ({ username, password }) => {
             await usersDB.read();
@@ -50,20 +48,21 @@ async function init() {
             }
 
             socket.username = username;
-            if (!onlineUsers.find(u => u.username === username)) {
-                onlineUsers.push({ username, socketId: socket.id });
-            }
+
+            // Убираем старую сессию если есть (на случай переподключения)
+            onlineUsers = onlineUsers.filter(u => u.username !== username);
+            onlineUsers.push({ username, socketId: socket.id });
 
             io.emit("update users", onlineUsers.map(u => u.username));
-            
+
             await messagesDB.read();
             socket.emit("chat history", messagesDB.data.messages || []);
             socket.emit("login result", { success: true, username });
 
-            io.emit("chat message", { 
-                user: "Система", 
-                text: `${username} подключился`, 
-                time: new Date().toLocaleTimeString() 
+            io.emit("chat message", {
+                user: "Система",
+                text: `${username} подключился`,
+                time: new Date().toLocaleTimeString()
             });
         });
 
@@ -71,10 +70,7 @@ async function init() {
         socket.on("chat message", async ({ text }) => {
             if (!socket.username) return;
             await messagesDB.read();
-            
-            // Защита от undefined
             messagesDB.data.messages ||= [];
-            
             const msg = { user: socket.username, text, time: new Date().toLocaleTimeString() };
             messagesDB.data.messages.push(msg);
             await messagesDB.write();
@@ -83,7 +79,6 @@ async function init() {
 
         // Приватные сообщения
         socket.on("private message", async ({ to, text }) => {
-            
             if (!socket.username) return;
             const users = [socket.username, to].sort();
             const room = users.join("_");
@@ -117,10 +112,10 @@ async function init() {
             if (socket.username) {
                 onlineUsers = onlineUsers.filter(u => u.socketId !== socket.id);
                 io.emit("update users", onlineUsers.map(u => u.username));
-                io.emit("chat message", { 
-                    user: "Система", 
-                    text: `${socket.username} вышел`, 
-                    time: new Date().toLocaleTimeString() 
+                io.emit("chat message", {
+                    user: "Система",
+                    text: `${socket.username} вышел`,
+                    time: new Date().toLocaleTimeString()
                 });
             }
         };
@@ -134,5 +129,4 @@ async function init() {
     });
 }
 
-// Запуск приложения
 init().catch(console.error);
