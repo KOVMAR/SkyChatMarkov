@@ -100,6 +100,28 @@
             font-weight: 700; color: #818cf8; font-size: 15px; flex-shrink: 0;
         }
 
+        #messages li div, #privateMessages li div {
+            white-space: pre-wrap; /* Сохраняет все пробелы и переносы строк */
+            word-break: break-word; /* Чтобы длинные слова не ломали верстку */
+        }
+        /* Скрываем скроллбар для Chrome, Safari и Opera */
+        #input::-webkit-scrollbar {
+            display: none;
+        }
+        #input {
+            resize: none;         /* Запрещает растягивать за уголок (ты это уже сделал) */
+            height: 40px;         /* Строго фиксированная высота */
+            max-height: 40px;     /* На всякий случай дублируем ограничение */
+            overflow-y: auto;     /* Включает вертикальную прокрутку внутри */
+            line-height: 1.25;    /* Настраиваем межстрочный интервал для удобства */
+            -ms-overflow-style: none;  /* IE и Edge */
+            scrollbar-width: none;  /* Firefox */
+            margin-top: 5px;
+        }
+        #input::placeholder {
+            vertical-align: middle;
+        }
+
         /* ── Read receipt checkmarks ── */
         .read-status {
             display: inline-flex;
@@ -108,6 +130,7 @@
             font-size: 11px;
             line-height: 1;
             transition: color 0.3s;
+            min-width: 18px;
         }
         .read-status.unread { color: #64748b; }
         .read-status.read   { color: #60a5fa; }
@@ -239,7 +262,7 @@
                 </div>
                 <div class="flex gap-2 bg-slate-800/60 rounded-2xl p-1.5 border border-white/5 focus-within:border-blue-500/50 transition-all">
                     <button type="button" id="emojiBtn" class="text-slate-500 hover:text-yellow-400 p-2"><i data-lucide="smile" class="w-6 h-6"></i></button>
-                    <input id="input" autocomplete="off" placeholder="Сообщение..." class="flex-1 bg-transparent border-none outline-none px-2 py-2 text-sm text-white">
+                    <textarea id="input" autocomplete="off" placeholder="Сообщение..." class="flex-1 bg-transparent border-none outline-none px-2 py-2 text-sm text-white"></textarea>
                     <button class="bg-blue-600 hover:bg-blue-500 p-3 rounded-xl shadow-lg"><i data-lucide="send-horizontal" class="w-5 h-5 text-white"></i></button>
                 </div>
             </form>
@@ -378,6 +401,23 @@
         setTimeout(scrollToBottom, 100);
     });
 
+    // Перенос строки и отправка
+    const inputField = document.getElementById("input");
+
+    inputField.addEventListener("keydown", (e) => {
+        // Если нажат Enter БЕЗ Shift
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault(); // Отменяем стандартный перенос строки
+            document.getElementById("form").dispatchEvent(new Event("submit")); // Вызываем отправку формы
+        }
+    });
+
+    // Автоматическое увеличение высоты при печати (опционально)
+    inputField.addEventListener("input", function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
     // ─── Звук уведомления ───
     function playNotificationSound() {
         try {
@@ -464,9 +504,8 @@
 
             li.innerHTML = `
                 <span class="text-[9px] text-slate-500 mb-1 px-2">${isMe ? 'Вы' : (msg.user || msg.from)} • ${msg.time}</span>
-                <div class="flex items-end gap-1 ${isMe ? 'flex-row-reverse max-w-[85%]' : ''}">
-                    
-                    <div class="p-3 px-4 text-sm ${isMe ? 'message-me text-white ' : 'message-other text-slate-100'}">${msg.text}</div>
+                <div class="flex items-end gap-1 -webkit-box-sizing: border-box; box-sizing: border-box; ${isMe ? 'flex-row-reverse' : ''}">
+                    <div class="p-3 px-4 text-sm ${isMe ? 'message-me text-white' : 'message-other text-slate-100'}">${msg.text}</div>
                     ${receiptHtml}
                 </div>`;
         }
