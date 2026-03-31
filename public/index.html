@@ -66,10 +66,13 @@
             max-width: 320px;
             height: 300px;
         }
+
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .msg-anim { animation: slideUp 0.2s ease-out forwards; }
 
-        /* Toast уведомление */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .form-panel { animation: fadeIn 0.2s ease-out forwards; }
+
         #toast {
             position: fixed;
             top: 1.5rem;
@@ -100,7 +103,6 @@
 </head>
 <body class="text-slate-200">
 
-    <!-- Toast уведомление -->
     <div id="toast">
         <div id="toastAvatar">?</div>
         <div style="overflow:hidden">
@@ -110,21 +112,32 @@
     </div>
 
     <div id="loginForm" class="glass w-full max-w-[400px] p-8 rounded-[2.5rem] shadow-2xl z-[100] mx-4">
-        <div class="text-center mb-8">
+        <div class="text-center mb-7">
             <div class="inline-block p-4 bg-blue-500/10 rounded-2xl mb-4 border border-blue-500/20">
                 <i data-lucide="zap" class="w-8 h-8 text-blue-400"></i>
             </div>
             <h1 class="text-4xl font-black italic tracking-tighter text-white">SkyChat</h1>
             <p class="text-slate-500 text-[10px] uppercase tracking-[0.3em] mt-2 font-bold">Secure Gateway</p>
         </div>
-        <div class="space-y-4">
-            <input id="usernameInput" type="text" placeholder="Логин" class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
-            <input id="passwordInput" type="password" placeholder="Пароль" class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
-            <div class="grid grid-cols-2 gap-3 pt-2">
-                <button id="loginBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg">Войти</button>
-                <button id="registerBtn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-2xl transition-all">Регистрация</button>
-            </div>
-            <div id="loginMsg" class="text-center text-[11px] text-rose-500 uppercase tracking-widest min-h-[20px] mt-4 font-medium"></div>
+
+        <div class="flex bg-slate-800/50 rounded-2xl p-1 border border-white/5 mb-6">
+            <button class="authTab flex-1 py-2.5 text-[11px] font-bold uppercase rounded-xl transition-all bg-blue-600 text-white" data-form="loginPanel">Вход</button>
+            <button class="authTab flex-1 py-2.5 text-[11px] font-bold uppercase rounded-xl transition-all text-slate-500" data-form="registerPanel">Регистрация</button>
+        </div>
+
+        <div id="loginPanel" class="form-panel space-y-4">
+            <input id="loginUsername" type="text"     placeholder="Логин"  class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+            <input id="loginPassword" type="password" placeholder="Пароль" class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+            <button id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg mt-2">Войти</button>
+            <div id="loginMsg" class="text-center text-[11px] text-rose-500 uppercase tracking-widest min-h-[18px] font-medium"></div>
+        </div>
+
+        <div id="registerPanel" class="hidden form-panel space-y-4">
+            <input id="regUsername"  type="text"     placeholder="Придумайте логин"  class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+            <input id="regPassword"  type="password" placeholder="Придумайте пароль" class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+            <input id="regPassword2" type="password" placeholder="Повторите пароль"  class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+            <button id="registerBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg mt-2">Зарегистрироваться</button>
+            <div id="registerMsg" class="text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium"></div>
         </div>
     </div>
 
@@ -177,68 +190,179 @@
     const socket = io();
     lucide.createIcons();
 
-    const sidebar = document.getElementById("sidebar");
-    const chatWindow = document.getElementById("chatWindow");
-    const loginForm = document.getElementById("loginForm");
-    const app = document.getElementById("app");
-    const messagesBox = document.getElementById("messagesBox");
-    const input = document.getElementById("input");
+    const sidebar              = document.getElementById("sidebar");
+    const chatWindow           = document.getElementById("chatWindow");
+    const loginForm            = document.getElementById("loginForm");
+    const app                  = document.getElementById("app");
+    const messagesBox          = document.getElementById("messagesBox");
+    const input                = document.getElementById("input");
     const emojiPickerContainer = document.getElementById('emojiPickerContainer');
-    const emojiPicker = emojiPickerContainer.querySelector('emoji-picker');
-    const toast = document.getElementById("toast");
+    const emojiPicker          = emojiPickerContainer.querySelector('emoji-picker');
+    const toast                = document.getElementById("toast");
 
-    let username = null, privateWith = null, currentTab = "public";
-    let toastTimer = null;
+    let username     = null;
+    let privateWith  = null;
+    let currentTab   = "public";
+    let toastTimeout = null;
 
-    // ─── Звук уведомления через Web Audio API (без внешних файлов) ───
+    // Последний полученный список — чтобы перерисовать после логина
+    let lastOnlineList = [];
+
+    // ─── Рендер списка пользователей ───
+    function renderUsers(list) {
+        const ul = document.getElementById("users");
+        ul.innerHTML = "";
+        // Фильтруем себя — работает только когда username уже известен
+        const others = list.filter(u => u !== username);
+        document.getElementById("onlineCount").textContent = others.length;
+
+        others.forEach(u => {
+            const li = document.createElement("li");
+            li.className = "flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-all border border-transparent";
+            li.innerHTML = `<div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-blue-500">${u[0].toUpperCase()}</div>
+                            <div class="text-xs font-semibold">${u}</div>`;
+            li.onclick = () => {
+                privateWith = u;
+                showTab("private");
+                socket.emit("get private history", { withUser: u });
+                openChat();
+            };
+            ul.appendChild(li);
+        });
+    }
+
+    socket.on("update users", (list) => {
+        lastOnlineList = list; // сохраняем всегда
+        renderUsers(list);    // рендерим (если username ещё null — себя не отфильтруем, но перерисуем после логина)
+    });
+
+    // ─── Переключение вкладок авторизации ───
+    document.querySelectorAll(".authTab").forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll(".authTab").forEach(b => {
+                b.classList.remove("bg-blue-600", "text-white");
+                b.classList.add("text-slate-500");
+            });
+            btn.classList.add("bg-blue-600", "text-white");
+            btn.classList.remove("text-slate-500");
+
+            ["loginPanel", "registerPanel"].forEach(id => {
+                document.getElementById(id).classList.toggle("hidden", id !== btn.dataset.form);
+            });
+
+            document.getElementById("loginMsg").textContent    = "";
+            document.getElementById("registerMsg").textContent = "";
+        };
+    });
+
+    // ─── Регистрация ───
+    document.getElementById("registerBtn").onclick = () => {
+        const u   = document.getElementById("regUsername").value.trim();
+        const p   = document.getElementById("regPassword").value;
+        const p2  = document.getElementById("regPassword2").value;
+        const msg = document.getElementById("registerMsg");
+
+        const setErr = (text) => { msg.textContent = text; msg.className = "text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium text-rose-500"; };
+        if (!u || !p)   return setErr("Заполните все поля");
+        if (p !== p2)   return setErr("Пароли не совпадают");
+        if (p.length < 4) return setErr("Пароль минимум 4 символа");
+
+        socket.emit("register", { username: u, password: p });
+    };
+
+    socket.on("register result", ({ success, msg }) => {
+        const el = document.getElementById("registerMsg");
+        if (!success) {
+            el.textContent = msg;
+            el.className = "text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium text-rose-500";
+            return;
+        }
+        el.textContent = "Аккаунт создан!";
+        el.className = "text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium text-emerald-400";
+        // Автоматический вход после регистрации
+        setTimeout(() => {
+            socket.emit("login", {
+                username: document.getElementById("regUsername").value.trim(),
+                password: document.getElementById("regPassword").value
+            });
+        }, 600);
+    });
+
+    // ─── Логин ───
+    document.getElementById("loginBtn").onclick = () => {
+        socket.emit("login", {
+            username: document.getElementById("loginUsername").value.trim(),
+            password: document.getElementById("loginPassword").value
+        });
+    };
+
+    socket.on("login result", ({ success, username: user, msg }) => {
+        if (!success) {
+            document.getElementById("loginMsg").textContent = msg;
+            return;
+        }
+
+        username = user; // теперь username известен
+
+        loginForm.classList.add("hidden");
+        app.classList.remove("hidden");
+        app.classList.add("flex");
+        sidebar.classList.remove("hidden");
+
+        if (isDesktop()) {
+            chatWindow.classList.remove("hidden");
+            chatWindow.classList.add("flex");
+        } else {
+            chatWindow.classList.add("hidden");
+            chatWindow.classList.remove("flex");
+        }
+
+        lucide.createIcons();
+
+        // ★ Перерисовываем список — теперь username известен и себя отфильтруем
+        renderUsers(lastOnlineList);
+
+        setTimeout(scrollToBottom, 100);
+    });
+
+    // ─── Звук уведомления ───
     function playNotificationSound() {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const playTone = (freq, start, duration, vol) => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
+            const playTone = (freq, start, dur, vol) => {
+                const osc = ctx.createOscillator(), gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
                 osc.type = "sine";
                 osc.frequency.setValueAtTime(freq, start);
                 gain.gain.setValueAtTime(0, start);
                 gain.gain.linearRampToValueAtTime(vol, start + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
-                osc.start(start);
-                osc.stop(start + duration);
+                gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+                osc.start(start); osc.stop(start + dur);
             };
-            // Два тона — приятный "дин-дон"
             playTone(880,  ctx.currentTime,        0.15, 0.25);
             playTone(1100, ctx.currentTime + 0.16, 0.22, 0.18);
-        } catch (e) { /* браузер заблокировал — молча пропускаем */ }
+        } catch (e) {}
     }
 
     // ─── Toast ───
-    let toastTimeout = null;
     function showToast(from, text) {
         document.getElementById("toastAvatar").textContent = from[0].toUpperCase();
-        document.getElementById("toastName").textContent = from;
-        document.getElementById("toastText").textContent = text;
+        document.getElementById("toastName").textContent   = from;
+        document.getElementById("toastText").textContent   = text;
         toast.classList.add("show");
         if (toastTimeout) clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => toast.classList.remove("show"), 4000);
     }
 
-    // Клик по тосту — переходим в чат с этим человеком
     toast.onclick = () => {
         const name = document.getElementById("toastName").textContent;
-        if (name) {
-            privateWith = name;
-            showTab("private");
-            socket.emit("get private history", { withUser: name });
-            openChat();
-        }
+        if (name) { privateWith = name; showTab("private"); socket.emit("get private history", { withUser: name }); openChat(); }
         toast.classList.remove("show");
     };
 
     // ─── Helpers ───
     const scrollToBottom = () => { messagesBox.scrollTop = messagesBox.scrollHeight; };
-    const isDesktop = () => window.innerWidth >= 768;
+    const isDesktop      = () => window.innerWidth >= 768;
 
     function openChat() {
         if (!isDesktop()) {
@@ -255,58 +379,13 @@
         chatWindow.classList.remove("flex");
     };
 
-    document.getElementById('emojiBtn').onclick = (e) => {
-        e.stopPropagation();
-        emojiPickerContainer.classList.toggle('hidden');
-    };
+    document.getElementById('emojiBtn').onclick = (e) => { e.stopPropagation(); emojiPickerContainer.classList.toggle('hidden'); };
     emojiPicker.addEventListener('emoji-click', e => { input.value += e.detail.unicode; input.focus(); });
     document.onclick = (e) => { if (!emojiPickerContainer.contains(e.target)) emojiPickerContainer.classList.add('hidden'); };
 
-    document.getElementById("registerBtn").onclick = () => socket.emit("register", { username: usernameInput.value, password: passwordInput.value });
-    document.getElementById("loginBtn").onclick = () => socket.emit("login", { username: usernameInput.value, password: passwordInput.value });
-
-    socket.on("login result", ({ success, username: user, msg }) => {
-        if (!success) { document.getElementById("loginMsg").textContent = msg; return; }
-        username = user;
-        loginForm.classList.add("hidden");
-        app.classList.remove("hidden");
-        app.classList.add("flex");
-        sidebar.classList.remove("hidden");
-
-        if (isDesktop()) {
-            chatWindow.classList.remove("hidden");
-            chatWindow.classList.add("flex");
-        } else {
-            chatWindow.classList.add("hidden");
-            chatWindow.classList.remove("flex");
-        }
-
-        lucide.createIcons();
-        setTimeout(scrollToBottom, 100);
-    });
-
-    socket.on("update users", (onlineUsers) => {
-        const ul = document.getElementById("users");
-        ul.innerHTML = "";
-        document.getElementById("onlineCount").textContent = onlineUsers.length;
-        onlineUsers.forEach(u => {
-            if (u === username) return;
-            const li = document.createElement("li");
-            li.className = "flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-all border border-transparent";
-            li.innerHTML = `<div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-blue-500">${u[0].toUpperCase()}</div><div class="text-xs font-semibold">${u}</div>`;
-            li.onclick = () => {
-                privateWith = u;
-                showTab("private");
-                socket.emit("get private history", { withUser: u });
-                openChat();
-            };
-            ul.appendChild(li);
-        });
-    });
-
     function renderMessage(container, msg, meName) {
         const isMe = (msg.user === meName || msg.from === meName);
-        const li = document.createElement("li");
+        const li   = document.createElement("li");
         li.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} msg-anim w-full`;
         if (msg.user === "Система") {
             li.innerHTML = `<span class="text-[9px] text-slate-600 font-bold uppercase tracking-widest w-full text-center my-2">${msg.text}</span>`;
@@ -337,30 +416,14 @@
         if (!isDesktop()) openChat();
     });
 
-    socket.on("chat history", h => {
-        document.getElementById("messages").innerHTML = "";
-        h.forEach(m => renderMessage(document.getElementById("messages"), m, username));
-    });
+    socket.on("chat history", h => { document.getElementById("messages").innerHTML = ""; h.forEach(m => renderMessage(document.getElementById("messages"), m, username)); });
     socket.on("chat message", m => renderMessage(document.getElementById("messages"), m, username));
-
-    socket.on("private history", ({ history }) => {
-        document.getElementById("privateMessages").innerHTML = "";
-        history.forEach(m => renderMessage(document.getElementById("privateMessages"), m, username));
-    });
-
+    socket.on("private history", ({ history }) => { document.getElementById("privateMessages").innerHTML = ""; history.forEach(m => renderMessage(document.getElementById("privateMessages"), m, username)); });
     socket.on("private message", m => {
-        const isIncoming = m.from !== username;
+        const isIncoming   = m.from !== username;
         const isActiveChat = currentTab === "private" && privateWith === m.from;
-
-        // Звук + тост только если сообщение входящее и мы не в этом чате
-        if (isIncoming && !isActiveChat) {
-            playNotificationSound();
-            showToast(m.from, m.text);
-        }
-
-        if (privateWith === m.from || m.from === username) {
-            renderMessage(document.getElementById("privateMessages"), m, username);
-        }
+        if (isIncoming && !isActiveChat) { playNotificationSound(); showToast(m.from, m.text); }
+        if (privateWith === m.from || m.from === username) renderMessage(document.getElementById("privateMessages"), m, username);
     });
 
     document.getElementById("form").onsubmit = (e) => {

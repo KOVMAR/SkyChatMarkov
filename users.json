@@ -1,5 +1,36 @@
 {
   "users": [
-    
+    {
+      "username": "Ваня",
+      "password": "$2b$10$z3zgkarY2nklN3TlJdcUV.OoVxNu4y5P5VrFdNaqdh1oZ3XpNxuMe"
+    },
+    {
+      "username": "Лиза",
+      "password": "$2b$10$Nq42FXnmgbl9eLorN72jOOFLJxkBTej1lyhE0kfU1FAWDtMV..BF6"
+    },
+    {
+      "username": "Света",
+      "password": "$2b$10$bofeXn0vqM3zOpxW5NX1sOrkqaIjWwfToXkRJ6tWTTRsawFJr.ntu"
+    },
+    {
+      "username": "Саша",
+      "password": "$2b$10$nEEbK46Zm9Tw73UtM1757O4cUI.QuGzbNI8HzieWrfYKn14kUmwWK"
+    },
+    {
+      "username": "Максим",
+      "password": "$2b$10$YrdAeFGURK0C3tsl0aT6j.yF225gECyKzpxFg5NKIjkUYxDdY6ImS"
+    },
+    {
+      "username": "1",
+      "password": "$2b$10$4EwDCfpxhRsvSv97G5QdXOOrjSGGK4VJexhvOdtLGP4fIG5TiIjp6"
+    },
+    {
+      "username": "2",
+      "password": "$2b$10$j/L5IyXaMfgfDCK0T4sByucnZN5uk4Kl67klt1e4UDEVx8Y4OAXzG"
+    },
+    {
+      "username": "3",
+      "password": "$2b$10$M6wjCa.cX9QCloDCjFpXiO7OlkK7oDSFdOCQVCj5eBtAbAAk48wuO"
+    }
   ]
 }
