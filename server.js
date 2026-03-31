@@ -10,6 +10,12 @@ const messagesDB = new Low(new JSONFile("db.json"));
 
 let onlineUsers = [];
 
+// activeChats[username] = withWhom (кто сейчас открыт у пользователя)
+const activeChats = {};
+
+// typingTimers[socketId] = timer
+const typingTimers = {};
+
 app.use(express.static("public"));
 
 async function init() {
@@ -49,7 +55,6 @@ async function init() {
 
             socket.username = username;
 
-            // Убираем старую сессию если есть (на случай переподключения)
             onlineUsers = onlineUsers.filter(u => u.username !== username);
             onlineUsers.push({ username, socketId: socket.id });
 
@@ -87,15 +92,41 @@ async function init() {
             messagesDB.data.private ||= {};
             if (!messagesDB.data.private[room]) messagesDB.data.private[room] = [];
 
-            const msg = { user: socket.username, text, time: new Date().toLocaleTimeString() };
+            // Генерируем уникальный id сообщения
+            const msgId = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+            // Проверяем, открыт ли у получателя чат именно с отправителем
+            const recipientActiveChat = activeChats[to];
+            const isRead = (recipientActiveChat === socket.username);
+
+            const msg = {
+                id: msgId,
+                user: socket.username,
+                text,
+                time: new Date().toLocaleTimeString(),
+                read: isRead
+            };
             messagesDB.data.private[room].push(msg);
             await messagesDB.write();
 
             const target = onlineUsers.find(u => u.username === to);
             if (target) {
-                io.to(target.socketId).emit("private message", { from: socket.username, text: msg.text, time: msg.time });
+                io.to(target.socketId).emit("private message", {
+                    id: msg.id,
+                    from: socket.username,
+                    text: msg.text,
+                    time: msg.time,
+                    read: msg.read
+                });
             }
-            socket.emit("private message", { from: socket.username, text: msg.text, time: msg.time });
+            // Отправителю — тоже с id и статусом
+            socket.emit("private message", {
+                id: msg.id,
+                from: socket.username,
+                text: msg.text,
+                time: msg.time,
+                read: msg.read
+            });
         });
 
         // История приватного чата
@@ -108,8 +139,77 @@ async function init() {
             socket.emit("private history", { withUser, history });
         });
 
+        // Пользователь открыл приватный чат — сообщаем серверу
+        socket.on("open private chat", async ({ withUser }) => {
+            if (!socket.username) return;
+            activeChats[socket.username] = withUser;
+
+            // Помечаем все непрочитанные сообщения от withUser как прочитанные
+            const users = [socket.username, withUser].sort();
+            const room = users.join("_");
+
+            await messagesDB.read();
+            if (!messagesDB.data.private?.[room]) return;
+
+            let changed = false;
+            const updatedIds = [];
+            messagesDB.data.private[room].forEach(m => {
+                if (m.user === withUser && !m.read) {
+                    m.read = true;
+                    updatedIds.push(m.id);
+                    changed = true;
+                }
+            });
+            if (changed) await messagesDB.write();
+
+            // Уведомляем отправителя (withUser), что его сообщения прочитаны
+            if (updatedIds.length > 0) {
+                const sender = onlineUsers.find(u => u.username === withUser);
+                if (sender) {
+                    io.to(sender.socketId).emit("messages read", {
+                        byUser: socket.username,
+                        ids: updatedIds
+                    });
+                }
+            }
+        });
+
+        // Пользователь закрыл приватный чат / перешёл в другой
+        socket.on("close private chat", () => {
+            if (socket.username) delete activeChats[socket.username];
+        });
+
+        // ─── Typing ───
+        socket.on("typing start", ({ to }) => {
+            if (!socket.username) return;
+            const target = onlineUsers.find(u => u.username === to);
+            if (target) {
+                io.to(target.socketId).emit("typing", { from: socket.username });
+            }
+            // Автоматически сбрасываем через 3с если "typing stop" не пришёл
+            if (typingTimers[socket.id]) clearTimeout(typingTimers[socket.id]);
+            typingTimers[socket.id] = setTimeout(() => {
+                if (target) io.to(target.socketId).emit("typing stop", { from: socket.username });
+            }, 3000);
+        });
+
+        socket.on("typing stop", ({ to }) => {
+            if (!socket.username) return;
+            const target = onlineUsers.find(u => u.username === to);
+            if (target) io.to(target.socketId).emit("typing stop", { from: socket.username });
+            if (typingTimers[socket.id]) {
+                clearTimeout(typingTimers[socket.id]);
+                delete typingTimers[socket.id];
+            }
+        });
+
         const handleDisconnect = () => {
             if (socket.username) {
+                delete activeChats[socket.username];
+                if (typingTimers[socket.id]) {
+                    clearTimeout(typingTimers[socket.id]);
+                    delete typingTimers[socket.id];
+                }
                 onlineUsers = onlineUsers.filter(u => u.socketId !== socket.id);
                 io.emit("update users", onlineUsers.map(u => u.username));
                 io.emit("chat message", {

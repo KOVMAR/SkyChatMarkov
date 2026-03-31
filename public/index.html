@@ -99,6 +99,59 @@
             display: flex; align-items: center; justify-content: center;
             font-weight: 700; color: #818cf8; font-size: 15px; flex-shrink: 0;
         }
+
+        /* ── Read receipt checkmarks ── */
+        .read-status {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 5px;
+            font-size: 11px;
+            line-height: 1;
+            transition: color 0.3s;
+        }
+        .read-status.unread { color: #64748b; }
+        .read-status.read   { color: #60a5fa; }
+
+        /* ── Typing indicator ── */
+        #typingIndicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px 8px;
+            min-height: 28px;
+            font-size: 11px;
+            color: #94a3b8;
+            font-style: italic;
+            flex-shrink: 0;
+        }
+        .typing-dots {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .typing-dots span {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #60a5fa;
+            animation: typingBounce 1.2s infinite ease-in-out;
+        }
+        .typing-dots span:nth-child(1) { animation-delay: 0s; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30%            { transform: translateY(-5px); opacity: 1; }
+        }
+        .pencil-icon {
+            font-size: 13px;
+            animation: pencilWiggle 0.8s infinite alternate ease-in-out;
+            display: inline-block;
+        }
+        @keyframes pencilWiggle {
+            from { transform: rotate(-10deg); }
+            to   { transform: rotate(10deg); }
+        }
     </style>
 </head>
 <body class="text-slate-200">
@@ -172,6 +225,14 @@
                 <ul id="privateMessages" class="hidden"></ul>
             </div>
 
+            <!-- Typing indicator -->
+            <div id="typingIndicator" class="hidden">
+                <span class="pencil-icon">✏️</span>
+                <span id="typingName"></span>
+                <span>печатает</span>
+                <span class="typing-dots"><span></span><span></span><span></span></span>
+            </div>
+
             <form id="form" class="p-4 bg-slate-900/40 border-t border-white/5 relative flex-shrink-0">
                 <div id="emojiPickerContainer" class="hidden absolute bottom-24 left-4 z-50 shadow-2xl rounded-2xl overflow-hidden border border-white/10">
                     <emoji-picker class="light"></emoji-picker>
@@ -199,20 +260,26 @@
     const emojiPickerContainer = document.getElementById('emojiPickerContainer');
     const emojiPicker          = emojiPickerContainer.querySelector('emoji-picker');
     const toast                = document.getElementById("toast");
+    const typingIndicator      = document.getElementById("typingIndicator");
+    const typingName           = document.getElementById("typingName");
 
     let username     = null;
     let privateWith  = null;
     let currentTab   = "public";
     let toastTimeout = null;
-
-    // Последний полученный список — чтобы перерисовать после логина
     let lastOnlineList = [];
+
+    // Typing — дебаунс
+    let typingTimeout = null;
+    let isTyping = false;
+
+    // Таймер скрытия индикатора печатания
+    let typingHideTimer = null;
 
     // ─── Рендер списка пользователей ───
     function renderUsers(list) {
         const ul = document.getElementById("users");
         ul.innerHTML = "";
-        // Фильтруем себя — работает только когда username уже известен
         const others = list.filter(u => u !== username);
         document.getElementById("onlineCount").textContent = others.length;
 
@@ -224,6 +291,7 @@
             li.onclick = () => {
                 privateWith = u;
                 showTab("private");
+                socket.emit("open private chat", { withUser: u });
                 socket.emit("get private history", { withUser: u });
                 openChat();
             };
@@ -232,8 +300,8 @@
     }
 
     socket.on("update users", (list) => {
-        lastOnlineList = list; // сохраняем всегда
-        renderUsers(list);    // рендерим (если username ещё null — себя не отфильтруем, но перерисуем после логина)
+        lastOnlineList = list;
+        renderUsers(list);
     });
 
     // ─── Переключение вкладок авторизации ───
@@ -245,11 +313,9 @@
             });
             btn.classList.add("bg-blue-600", "text-white");
             btn.classList.remove("text-slate-500");
-
             ["loginPanel", "registerPanel"].forEach(id => {
                 document.getElementById(id).classList.toggle("hidden", id !== btn.dataset.form);
             });
-
             document.getElementById("loginMsg").textContent    = "";
             document.getElementById("registerMsg").textContent = "";
         };
@@ -261,12 +327,10 @@
         const p   = document.getElementById("regPassword").value;
         const p2  = document.getElementById("regPassword2").value;
         const msg = document.getElementById("registerMsg");
-
         const setErr = (text) => { msg.textContent = text; msg.className = "text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium text-rose-500"; };
         if (!u || !p)   return setErr("Заполните все поля");
         if (p !== p2)   return setErr("Пароли не совпадают");
         if (p.length < 4) return setErr("Пароль минимум 4 символа");
-
         socket.emit("register", { username: u, password: p });
     };
 
@@ -279,7 +343,6 @@
         }
         el.textContent = "Аккаунт создан!";
         el.className = "text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium text-emerald-400";
-        // Автоматический вход после регистрации
         setTimeout(() => {
             socket.emit("login", {
                 username: document.getElementById("regUsername").value.trim(),
@@ -297,18 +360,12 @@
     };
 
     socket.on("login result", ({ success, username: user, msg }) => {
-        if (!success) {
-            document.getElementById("loginMsg").textContent = msg;
-            return;
-        }
-
-        username = user; // теперь username известен
-
+        if (!success) { document.getElementById("loginMsg").textContent = msg; return; }
+        username = user;
         loginForm.classList.add("hidden");
         app.classList.remove("hidden");
         app.classList.add("flex");
         sidebar.classList.remove("hidden");
-
         if (isDesktop()) {
             chatWindow.classList.remove("hidden");
             chatWindow.classList.add("flex");
@@ -316,12 +373,8 @@
             chatWindow.classList.add("hidden");
             chatWindow.classList.remove("flex");
         }
-
         lucide.createIcons();
-
-        // ★ Перерисовываем список — теперь username известен и себя отфильтруем
         renderUsers(lastOnlineList);
-
         setTimeout(scrollToBottom, 100);
     });
 
@@ -356,7 +409,13 @@
 
     toast.onclick = () => {
         const name = document.getElementById("toastName").textContent;
-        if (name) { privateWith = name; showTab("private"); socket.emit("get private history", { withUser: name }); openChat(); }
+        if (name) {
+            privateWith = name;
+            showTab("private");
+            socket.emit("open private chat", { withUser: name });
+            socket.emit("get private history", { withUser: name });
+            openChat();
+        }
         toast.classList.remove("show");
     };
 
@@ -374,6 +433,8 @@
     }
 
     document.getElementById("backBtn").onclick = () => {
+        socket.emit("close private chat");
+        hideTypingIndicator();
         sidebar.classList.remove("hidden");
         chatWindow.classList.add("hidden");
         chatWindow.classList.remove("flex");
@@ -383,19 +444,49 @@
     emojiPicker.addEventListener('emoji-click', e => { input.value += e.detail.unicode; input.focus(); });
     document.onclick = (e) => { if (!emojiPickerContainer.contains(e.target)) emojiPickerContainer.classList.add('hidden'); };
 
+    // ─── Render message с read receipt ───
     function renderMessage(container, msg, meName) {
         const isMe = (msg.user === meName || msg.from === meName);
         const li   = document.createElement("li");
         li.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} msg-anim w-full`;
+
         if (msg.user === "Система") {
             li.innerHTML = `<span class="text-[9px] text-slate-600 font-bold uppercase tracking-widest w-full text-center my-2">${msg.text}</span>`;
         } else {
-            li.innerHTML = `<span class="text-[9px] text-slate-500 mb-1 px-2">${isMe ? 'Вы' : (msg.user || msg.from)} • ${msg.time}</span>
-                            <div class="p-3 px-4 max-w-[85%] text-sm ${isMe ? 'message-me text-white' : 'message-other text-slate-100'}">${msg.text}</div>`;
+            // Read receipt — только для исходящих приватных сообщений с id
+            const isPrivate = !!msg.id;
+            let receiptHtml = "";
+            if (isMe && isPrivate) {
+                const readClass = msg.read ? "read" : "unread";
+                const ticks     = msg.read ? "✓✓" : "✓";
+                receiptHtml = `<span class="read-status ${readClass}" data-msg-id="${msg.id}" title="${msg.read ? 'Прочитано' : 'Доставлено'}">${ticks}</span>`;
+            }
+
+            li.innerHTML = `
+                <span class="text-[9px] text-slate-500 mb-1 px-2">${isMe ? 'Вы' : (msg.user || msg.from)} • ${msg.time}</span>
+                <div class="flex items-end gap-1 ${isMe ? 'flex-row-reverse max-w-[85%]' : ''}">
+                    
+                    <div class="p-3 px-4 text-sm ${isMe ? 'message-me text-white ' : 'message-other text-slate-100'}">${msg.text}</div>
+                    ${receiptHtml}
+                </div>`;
         }
+        if (msg.id) li.dataset.msgId = msg.id;
         container.appendChild(li);
         scrollToBottom();
     }
+
+    // Обновить статус прочтения у конкретных сообщений
+    socket.on("messages read", ({ ids }) => {
+        ids.forEach(id => {
+            const receipt = document.querySelector(`.read-status[data-msg-id="${id}"]`);
+            if (receipt) {
+                receipt.classList.remove("unread");
+                receipt.classList.add("read");
+                receipt.textContent = "✓✓";
+                receipt.title = "Прочитано";
+            }
+        });
+    });
 
     function showTab(tab) {
         currentTab = tab;
@@ -408,6 +499,10 @@
         document.getElementById("messages").classList.toggle("hidden", tab !== "public");
         document.getElementById("privateMessages").classList.toggle("hidden", tab !== "private");
         document.getElementById("chatTitle").textContent = tab === "public" ? "Публичный чат" : (privateWith ? `Чат с ${privateWith}` : "Личные сообщения");
+        if (tab === "public") {
+            hideTypingIndicator();
+            socket.emit("close private chat");
+        }
         setTimeout(scrollToBottom, 50);
     }
 
@@ -422,13 +517,65 @@
     socket.on("private message", m => {
         const isIncoming   = m.from !== username;
         const isActiveChat = currentTab === "private" && privateWith === m.from;
+
         if (isIncoming && !isActiveChat) { playNotificationSound(); showToast(m.from, m.text); }
-        if (privateWith === m.from || m.from === username) renderMessage(document.getElementById("privateMessages"), m, username);
+
+        // Показываем сообщение если это наш текущий чат
+        if (privateWith === m.from || m.from === username) {
+            renderMessage(document.getElementById("privateMessages"), m, username);
+        }
+
+        // Если мы уже смотрим чат с этим пользователем — сразу шлём "прочитано"
+        if (isIncoming && isActiveChat) {
+            socket.emit("open private chat", { withUser: m.from });
+        }
+    });
+
+    // ─── Typing indicator ───
+    function showTypingIndicator(from) {
+        if (currentTab !== "private" || privateWith !== from) return;
+        typingName.textContent = from;
+        typingIndicator.classList.remove("hidden");
+        scrollToBottom();
+        if (typingHideTimer) clearTimeout(typingHideTimer);
+        typingHideTimer = setTimeout(hideTypingIndicator, 4000);
+    }
+
+    function hideTypingIndicator() {
+        typingIndicator.classList.add("hidden");
+        if (typingHideTimer) { clearTimeout(typingHideTimer); typingHideTimer = null; }
+    }
+
+    socket.on("typing",      ({ from }) => showTypingIndicator(from));
+    socket.on("typing stop", ({ from }) => { if (privateWith === from) hideTypingIndicator(); });
+
+    // Отправка события "печатает"
+    input.addEventListener("input", () => {
+        if (currentTab !== "private" || !privateWith) return;
+
+        if (!isTyping) {
+            isTyping = true;
+            socket.emit("typing start", { to: privateWith });
+        }
+
+        if (typingTimeout) clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            isTyping = false;
+            socket.emit("typing stop", { to: privateWith });
+        }, 1500);
     });
 
     document.getElementById("form").onsubmit = (e) => {
         e.preventDefault();
         if (!input.value.trim()) return;
+
+        // Сбрасываем typing при отправке
+        if (isTyping && privateWith) {
+            isTyping = false;
+            if (typingTimeout) clearTimeout(typingTimeout);
+            socket.emit("typing stop", { to: privateWith });
+        }
+
         if (currentTab === "private" && privateWith) socket.emit("private message", { to: privateWith, text: input.value });
         else socket.emit("chat message", { text: input.value });
         input.value = "";
