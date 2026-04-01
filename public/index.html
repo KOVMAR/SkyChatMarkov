@@ -8,621 +8,198 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="favicon.png" sizes="32x32">
-    <link rel="apple-touch-icon" sizes="180x180" href="favicon.png">
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at top left, #1e293b, #0f172a);
-            height: 100dvh;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-
-        .hidden { display: none !important; }
-
-        .glass {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        #chatWindow {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        #messagesBox {
-            flex: 1 1 0%;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #messages, #privateMessages {
-            margin-top: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            width: 100%;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-
-        .message-me { background: linear-gradient(135deg, #3b82f6, #2563eb); align-self: flex-end; border-radius: 18px 18px 2px 18px; }
-        .message-other { background: #334155; align-self: flex-start; border-radius: 18px 18px 18px 2px; }
-
-        emoji-picker {
-            --background: #1e293b;
-            --border-color: rgba(255,255,255,0.1);
-            width: 100%;
-            max-width: 320px;
-            height: 300px;
-        }
-
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .msg-anim { animation: slideUp 0.2s ease-out forwards; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        .form-panel { animation: fadeIn 0.2s ease-out forwards; }
-
-        #toast {
-            position: fixed;
-            top: 1.5rem;
-            right: 1.5rem;
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(15, 23, 42, 0.97);
-            border: 1px solid rgba(99, 102, 241, 0.35);
-            border-radius: 1.1rem;
-            padding: 14px 18px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            max-width: 300px;
-            cursor: pointer;
-            transform: translateX(120%);
-            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        #toast.show { transform: translateX(0); }
-        #toastAvatar {
-            width: 38px; height: 38px; border-radius: 50%;
-            background: #1e293b;
-            border: 2px solid rgba(99,102,241,0.5);
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 700; color: #818cf8; font-size: 15px; flex-shrink: 0;
-        }
-
-        #messages li div, #privateMessages li div {
-            white-space: pre-wrap; /* Сохраняет все пробелы и переносы строк */
-            word-break: break-word; /* Чтобы длинные слова не ломали верстку */
-        }
-        /* Скрываем скроллбар для Chrome, Safari и Opera */
-        #input::-webkit-scrollbar {
-            display: none;
-        }
-        #input {
-            resize: none;         /* Запрещает растягивать за уголок (ты это уже сделал) */
-            height: 40px;         /* Строго фиксированная высота */
-            max-height: 40px;     /* На всякий случай дублируем ограничение */
-            overflow-y: auto;     /* Включает вертикальную прокрутку внутри */
-            line-height: 1.25;    /* Настраиваем межстрочный интервал для удобства */
-            -ms-overflow-style: none;  /* IE и Edge */
-            scrollbar-width: none;  /* Firefox */
-            margin-top: 5px;
-        }
-        #input::placeholder {
-            vertical-align: middle;
-        }
-
-        /* ── Read receipt checkmarks ── */
-        .read-status {
-            display: inline-flex;
-            align-items: center;
-            margin-left: 5px;
-            font-size: 11px;
-            line-height: 1;
-            transition: color 0.3s;
-            min-width: 18px;
-        }
-        .read-status.unread { color: #64748b; }
-        .read-status.read   { color: #60a5fa; }
-
-        /* ── Typing indicator ── */
-        #typingIndicator {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 12px 8px;
-            min-height: 28px;
-            font-size: 11px;
-            color: #94a3b8;
-            font-style: italic;
-            flex-shrink: 0;
-        }
-        .typing-dots {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-        }
-        .typing-dots span {
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background: #60a5fa;
-            animation: typingBounce 1.2s infinite ease-in-out;
-        }
-        .typing-dots span:nth-child(1) { animation-delay: 0s; }
-        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typingBounce {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-            30%            { transform: translateY(-5px); opacity: 1; }
-        }
-        .pencil-icon {
-            font-size: 13px;
-            animation: pencilWiggle 0.8s infinite alternate ease-in-out;
-            display: inline-block;
-        }
-        @keyframes pencilWiggle {
-            from { transform: rotate(-10deg); }
-            to   { transform: rotate(10deg); }
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body class="text-slate-200">
 
-    <div id="toast">
-        <div id="toastAvatar">?</div>
-        <div style="overflow:hidden">
-            <div id="toastName" class="text-xs font-bold text-indigo-400 mb-0.5"></div>
-            <div id="toastText" class="text-xs text-slate-300" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px"></div>
+<!-- ── Toast ── -->
+<div id="toast">
+    <div id="toastAvatar">?</div>
+    <div style="overflow:hidden">
+        <div id="toastName" class="text-xs font-bold text-indigo-400 mb-0.5"></div>
+        <div id="toastText" class="text-xs text-slate-300" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px"></div>
+    </div>
+</div>
+
+<!-- ── Forward modal ── -->
+<div id="forwardModal" class="hidden">
+    <div class="modal-box">
+        <h3 class="font-bold text-sm mb-3 text-white">Переслать сообщение</h3>
+        <ul id="forwardUserList" class="space-y-1 max-h-72 overflow-y-auto custom-scrollbar"></ul>
+        <button id="forwardCancelBtn" class="mt-4 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition-all text-slate-300">Отмена</button>
+    </div>
+</div>
+
+<!-- ── Login ── -->
+<div id="loginForm" class="glass w-full max-w-[400px] p-8 rounded-[2.5rem] shadow-2xl z-[100] mx-4">
+    <div class="text-center mb-7">
+        <div class="inline-block p-4 bg-blue-500/10 rounded-2xl mb-4 border border-blue-500/20">
+            <i data-lucide="zap" class="w-8 h-8 text-blue-400"></i>
+        </div>
+        <h1 class="text-4xl font-black italic tracking-tighter text-white">SkyChat</h1>
+        <p class="text-slate-500 text-[10px] uppercase tracking-[0.3em] mt-2 font-bold">Secure Gateway</p>
+    </div>
+
+    <div class="flex bg-slate-800/50 rounded-2xl p-1 border border-white/5 mb-6">
+        <button class="authTab flex-1 py-2.5 text-[11px] font-bold uppercase rounded-xl transition-all bg-blue-600 text-white" data-form="loginPanel">Вход</button>
+        <button class="authTab flex-1 py-2.5 text-[11px] font-bold uppercase rounded-xl transition-all text-slate-500" data-form="registerPanel">Регистрация</button>
+    </div>
+
+    <div id="loginPanel" class="form-panel space-y-4">
+        <input id="loginUsername" type="text"     placeholder="Логин"  class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+        <input id="loginPassword" type="password" placeholder="Пароль" class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+        <button id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg">Войти</button>
+        <div id="loginMsg" class="text-center text-[11px] text-rose-500 uppercase tracking-widest min-h-[18px] font-medium"></div>
+    </div>
+
+    <div id="registerPanel" class="hidden form-panel space-y-4">
+        <input id="regUsername"  type="text"     placeholder="Придумайте логин"  class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+        <input id="regPassword"  type="password" placeholder="Придумайте пароль" class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+        <input id="regPassword2" type="password" placeholder="Повторите пароль"  class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
+        <button id="registerBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg">Зарегистрироваться</button>
+        <div id="registerMsg" class="text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium"></div>
+    </div>
+</div>
+
+<!-- ── App ── -->
+<div id="app" class="hidden w-full max-w-6xl h-full md:h-[90vh] md:rounded-3xl shadow-2xl overflow-hidden glass flex-col md:flex-row">
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="w-full md:w-80 border-r border-white/5 flex flex-col bg-slate-900/20 flex-shrink-0">
+        <div class="p-6 flex justify-between items-center border-b border-white/5">
+            <h2 class="text-xl font-black italic tracking-tight">SkyChat</h2>
+            <button id="logoutBtn" class="text-slate-500 hover:text-rose-400 p-1"><i data-lucide="power" class="w-5 h-5"></i></button>
+        </div>
+        <div class="p-4">
+            <div class="flex bg-slate-800/40 rounded-xl p-1 border border-white/5">
+                <button class="tabBtn active flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all bg-blue-600 text-white" data-tab="public">Общий</button>
+                <button class="tabBtn flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all text-slate-500" data-tab="private">Личные</button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scrollbar px-4 pb-6">
+            <p class="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-4 ml-2">Online • <span id="onlineCount">0</span></p>
+            <ul id="users" class="space-y-1"></ul>
         </div>
     </div>
 
-    <div id="loginForm" class="glass w-full max-w-[400px] p-8 rounded-[2.5rem] shadow-2xl z-[100] mx-4">
-        <div class="text-center mb-7">
-            <div class="inline-block p-4 bg-blue-500/10 rounded-2xl mb-4 border border-blue-500/20">
-                <i data-lucide="zap" class="w-8 h-8 text-blue-400"></i>
-            </div>
-            <h1 class="text-4xl font-black italic tracking-tighter text-white">SkyChat</h1>
-            <p class="text-slate-500 text-[10px] uppercase tracking-[0.3em] mt-2 font-bold">Secure Gateway</p>
+    <!-- Chat window -->
+    <div id="chatWindow" class="flex-1 flex-col relative bg-slate-900/10 overflow-hidden">
+
+        <!-- Header -->
+        <div class="p-4 md:p-5 border-b border-white/5 flex items-center gap-4 bg-white/5 backdrop-blur-sm flex-shrink-0 relative" style="z-index:1;">
+            <button id="backBtn" class="md:hidden text-slate-400 p-1"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
+            <div class="flex-1"><h3 id="chatTitle" class="font-bold text-sm md:text-base leading-none">Публичный чат</h3></div>
         </div>
 
-        <div class="flex bg-slate-800/50 rounded-2xl p-1 border border-white/5 mb-6">
-            <button class="authTab flex-1 py-2.5 text-[11px] font-bold uppercase rounded-xl transition-all bg-blue-600 text-white" data-form="loginPanel">Вход</button>
-            <button class="authTab flex-1 py-2.5 text-[11px] font-bold uppercase rounded-xl transition-all text-slate-500" data-form="registerPanel">Регистрация</button>
+        <!-- Selection toolbar (absolute, overlays header) -->
+        <div id="selectionBar" class="hidden" style="z-index:10;">
+            <span class="text-sm font-bold text-white"><span id="selCount">0</span> выбрано</span>
+            <button id="selReplyBtn"><i data-lucide="corner-up-left" class="w-4 h-4"></i> Ответить</button>
+            <button id="selForwardBtn"><i data-lucide="forward" class="w-4 h-4"></i> Переслать</button>
+            <button id="selCancelBtn" class="cancel-sel"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
 
-        <div id="loginPanel" class="form-panel space-y-4">
-            <input id="loginUsername" type="text"     placeholder="Логин"  class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
-            <input id="loginPassword" type="password" placeholder="Пароль" class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
-            <button id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg mt-2">Войти</button>
-            <div id="loginMsg" class="text-center text-[11px] text-rose-500 uppercase tracking-widest min-h-[18px] font-medium"></div>
+        <!-- Messages -->
+        <div id="messagesBox" class="custom-scrollbar">
+            <ul id="messages"></ul>
+            <ul id="privateMessages" class="hidden"></ul>
         </div>
 
-        <div id="registerPanel" class="hidden form-panel space-y-4">
-            <input id="regUsername"  type="text"     placeholder="Придумайте логин"  class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
-            <input id="regPassword"  type="password" placeholder="Придумайте пароль" class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
-            <input id="regPassword2" type="password" placeholder="Повторите пароль"  class="w-full bg-slate-900/50 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-blue-500 transition-all text-sm text-white">
-            <button id="registerBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg mt-2">Зарегистрироваться</button>
-            <div id="registerMsg" class="text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium"></div>
-        </div>
-    </div>
-
-    <div id="app" class="hidden w-full max-w-6xl h-full md:h-[90vh] md:rounded-3xl shadow-2xl overflow-hidden glass flex-col md:flex-row">
-        <div id="sidebar" class="w-full md:w-80 border-r border-white/5 flex flex-col bg-slate-900/20 flex-shrink-0">
-            <div class="p-6 flex justify-between items-center border-b border-white/5">
-                <h2 class="text-xl font-black italic tracking-tight">SkyChat</h2>
-                <button id="logoutBtn" class="text-slate-500 hover:text-rose-400 p-1"><i data-lucide="power" class="w-5 h-5"></i></button>
-            </div>
-            <div class="p-4">
-                <div class="flex bg-slate-800/40 rounded-xl p-1 border border-white/5">
-                    <button class="tabBtn active flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all bg-blue-600 text-white" data-tab="public">Общий</button>
-                    <button class="tabBtn flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all text-slate-500" data-tab="private">Личные</button>
-                </div>
-            </div>
-            <div class="flex-1 overflow-y-auto custom-scrollbar px-4 pb-6">
-                <p class="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-4 ml-2">Online • <span id="onlineCount">0</span></p>
-                <ul id="users" class="space-y-1"></ul>
-            </div>
+        <!-- Typing indicator -->
+        <div id="typingIndicator" class="hidden">
+            <span class="pencil-icon">✏️</span>
+            <span id="typingName"></span>
+            <span>печатает</span>
+            <span class="typing-dots"><span></span><span></span><span></span></span>
         </div>
 
-        <div id="chatWindow" class="flex-1 flex-col relative bg-slate-900/10 overflow-hidden">
-            <div class="p-4 md:p-5 border-b border-white/5 flex items-center gap-4 bg-white/5 backdrop-blur-sm">
-                <button id="backBtn" class="md:hidden text-slate-400 p-1"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
-                <div class="flex-1">
-                    <h3 id="chatTitle" class="font-bold text-sm md:text-base leading-none">Публичный чат</h3>
-                </div>
+        <!-- Reply preview -->
+        <div id="replyPreview" class="hidden">
+            <div class="reply-bar">
+                <div class="reply-who" id="replyWho"></div>
+                <div class="reply-text" id="replyText"></div>
             </div>
-
-            <div id="messagesBox" class="custom-scrollbar">
-                <ul id="messages"></ul>
-                <ul id="privateMessages" class="hidden"></ul>
-            </div>
-
-            <!-- Typing indicator -->
-            <div id="typingIndicator" class="hidden">
-                <span class="pencil-icon">✏️</span>
-                <span id="typingName"></span>
-                <span>печатает</span>
-                <span class="typing-dots"><span></span><span></span><span></span></span>
-            </div>
-
-            <form id="form" class="p-4 bg-slate-900/40 border-t border-white/5 relative flex-shrink-0">
-                <div id="emojiPickerContainer" class="hidden absolute bottom-24 left-4 z-50 shadow-2xl rounded-2xl overflow-hidden border border-white/10">
-                    <emoji-picker class="light"></emoji-picker>
-                </div>
-                <div class="flex gap-2 bg-slate-800/60 rounded-2xl p-1.5 border border-white/5 focus-within:border-blue-500/50 transition-all">
-                    <button type="button" id="emojiBtn" class="text-slate-500 hover:text-yellow-400 p-2"><i data-lucide="smile" class="w-6 h-6"></i></button>
-                    <textarea id="input" autocomplete="off" placeholder="Сообщение..." class="flex-1 bg-transparent border-none outline-none px-2 py-2 text-sm text-white"></textarea>
-                    <button class="bg-blue-600 hover:bg-blue-500 p-3 rounded-xl shadow-lg"><i data-lucide="send-horizontal" class="w-5 h-5 text-white"></i></button>
-                </div>
-            </form>
+            <button id="cancelReplyBtn" class="text-slate-500 hover:text-rose-400 p-1 ml-2 flex-shrink-0">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
         </div>
-    </div>
+
+        <!-- Recording bar -->
+        <div id="recordingBar" class="hidden">
+            <div class="rec-dot"></div>
+            <span class="text-red-400 text-xs font-bold">Запись</span>
+            <span id="recTimer" class="text-red-300 text-xs font-mono">0:00</span>
+            <span class="text-slate-500 text-xs ml-auto">Отпустите для остановки</span>
+        </div>
+
+        <!-- Voice preview -->
+        <div id="voicePreview" class="hidden">
+            <div id="voicePreviewPlayer" class="flex-1"></div>
+            <button id="deleteVoiceBtn" class="input-icon-btn text-rose-400 hover:text-rose-300 flex-shrink-0">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
+            </button>
+            <button id="sendVoiceBtn" class="send-btn flex-shrink-0">
+                <i data-lucide="send-horizontal" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- File preview -->
+        <div id="filePreview" class="hidden">
+            <img id="filePreviewThumb" class="hidden" alt="">
+            <div id="filePreviewIcon" class="hidden"><i data-lucide="file" class="w-5 h-5 text-blue-400"></i></div>
+            <div class="flex-1 min-w-0">
+                <div id="filePreviewName" class="text-xs font-semibold text-slate-200 truncate"></div>
+                <div id="filePreviewSize" class="text-[10px] text-slate-500 mt-0.5"></div>
+            </div>
+            <button id="deleteFileBtn" class="input-icon-btn text-rose-400 hover:text-rose-300 flex-shrink-0">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Attach menu -->
+        <div id="attachMenu" class="hidden">
+            <button data-accept="image/*"><i data-lucide="image"     class="w-4 h-4 text-blue-400"></i>   Фото</button>
+            <button data-accept="video/*"><i data-lucide="video"     class="w-4 h-4 text-violet-400"></i> Видео</button>
+            <button data-accept="audio/*"><i data-lucide="music"     class="w-4 h-4 text-emerald-400"></i>Музыка</button>
+            <button data-accept="*/*">    <i data-lucide="paperclip" class="w-4 h-4 text-slate-400"></i>  Файл</button>
+        </div>
+
+        <!-- Emoji picker -->
+        <div id="emojiPickerContainer" class="hidden absolute bottom-20 left-4 z-50 shadow-2xl rounded-2xl overflow-hidden border border-white/10" style="z-index:300;">
+            <emoji-picker></emoji-picker>
+        </div>
+
+        <!-- Input form -->
+        <form id="form" class="p-3 flex-shrink-0 relative" style="background:rgba(15,23,42,0.5);">
+            <div class="input-row">
+                <button type="button" id="attachBtn" class="input-icon-btn" title="Прикрепить">
+                    <i data-lucide="paperclip" class="w-5 h-5"></i>
+                </button>
+                <button type="button" id="emojiBtn" class="input-icon-btn" title="Эмодзи">
+                    <i data-lucide="smile" class="w-5 h-5"></i>
+                </button>
+                <textarea id="input" autocomplete="off" placeholder="Сообщение…" rows="1"></textarea>
+                <button type="button" id="voiceBtn" class="input-icon-btn" title="Голосовое (удержать)">
+                    <i data-lucide="mic" class="w-5 h-5"></i>
+                </button>
+                <button type="submit" class="send-btn" title="Отправить">
+                    <i data-lucide="send-horizontal" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </form>
+
+    </div><!-- /chatWindow -->
+</div><!-- /app -->
+
+<input type="file" id="fileInput" class="hidden">
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    const socket = io();
-    lucide.createIcons();
-
-    const sidebar              = document.getElementById("sidebar");
-    const chatWindow           = document.getElementById("chatWindow");
-    const loginForm            = document.getElementById("loginForm");
-    const app                  = document.getElementById("app");
-    const messagesBox          = document.getElementById("messagesBox");
-    const input                = document.getElementById("input");
-    const emojiPickerContainer = document.getElementById('emojiPickerContainer');
-    const emojiPicker          = emojiPickerContainer.querySelector('emoji-picker');
-    const toast                = document.getElementById("toast");
-    const typingIndicator      = document.getElementById("typingIndicator");
-    const typingName           = document.getElementById("typingName");
-
-    let username     = null;
-    let privateWith  = null;
-    let currentTab   = "public";
-    let toastTimeout = null;
-    let lastOnlineList = [];
-
-    // Typing — дебаунс
-    let typingTimeout = null;
-    let isTyping = false;
-
-    // Таймер скрытия индикатора печатания
-    let typingHideTimer = null;
-
-    // ─── Рендер списка пользователей ───
-    function renderUsers(list) {
-        const ul = document.getElementById("users");
-        ul.innerHTML = "";
-        const others = list.filter(u => u !== username);
-        document.getElementById("onlineCount").textContent = others.length;
-
-        others.forEach(u => {
-            const li = document.createElement("li");
-            li.className = "flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-all border border-transparent";
-            li.innerHTML = `<div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold text-blue-500">${u[0].toUpperCase()}</div>
-                            <div class="text-xs font-semibold">${u}</div>`;
-            li.onclick = () => {
-                privateWith = u;
-                showTab("private");
-                socket.emit("open private chat", { withUser: u });
-                socket.emit("get private history", { withUser: u });
-                openChat();
-            };
-            ul.appendChild(li);
-        });
-    }
-
-    socket.on("update users", (list) => {
-        lastOnlineList = list;
-        renderUsers(list);
-    });
-
-    // ─── Переключение вкладок авторизации ───
-    document.querySelectorAll(".authTab").forEach(btn => {
-        btn.onclick = () => {
-            document.querySelectorAll(".authTab").forEach(b => {
-                b.classList.remove("bg-blue-600", "text-white");
-                b.classList.add("text-slate-500");
-            });
-            btn.classList.add("bg-blue-600", "text-white");
-            btn.classList.remove("text-slate-500");
-            ["loginPanel", "registerPanel"].forEach(id => {
-                document.getElementById(id).classList.toggle("hidden", id !== btn.dataset.form);
-            });
-            document.getElementById("loginMsg").textContent    = "";
-            document.getElementById("registerMsg").textContent = "";
-        };
-    });
-
-    // ─── Регистрация ───
-    document.getElementById("registerBtn").onclick = () => {
-        const u   = document.getElementById("regUsername").value.trim();
-        const p   = document.getElementById("regPassword").value;
-        const p2  = document.getElementById("regPassword2").value;
-        const msg = document.getElementById("registerMsg");
-        const setErr = (text) => { msg.textContent = text; msg.className = "text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium text-rose-500"; };
-        if (!u || !p)   return setErr("Заполните все поля");
-        if (p !== p2)   return setErr("Пароли не совпадают");
-        if (p.length < 4) return setErr("Пароль минимум 4 символа");
-        socket.emit("register", { username: u, password: p });
-    };
-
-    socket.on("register result", ({ success, msg }) => {
-        const el = document.getElementById("registerMsg");
-        if (!success) {
-            el.textContent = msg;
-            el.className = "text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium text-rose-500";
-            return;
-        }
-        el.textContent = "Аккаунт создан!";
-        el.className = "text-center text-[11px] uppercase tracking-widest min-h-[18px] font-medium text-emerald-400";
-        setTimeout(() => {
-            socket.emit("login", {
-                username: document.getElementById("regUsername").value.trim(),
-                password: document.getElementById("regPassword").value
-            });
-        }, 600);
-    });
-
-    // ─── Логин ───
-    document.getElementById("loginBtn").onclick = () => {
-        socket.emit("login", {
-            username: document.getElementById("loginUsername").value.trim(),
-            password: document.getElementById("loginPassword").value
-        });
-    };
-
-    socket.on("login result", ({ success, username: user, msg }) => {
-        if (!success) { document.getElementById("loginMsg").textContent = msg; return; }
-        username = user;
-        loginForm.classList.add("hidden");
-        app.classList.remove("hidden");
-        app.classList.add("flex");
-        sidebar.classList.remove("hidden");
-        if (isDesktop()) {
-            chatWindow.classList.remove("hidden");
-            chatWindow.classList.add("flex");
-        } else {
-            chatWindow.classList.add("hidden");
-            chatWindow.classList.remove("flex");
-        }
+    // Lucide must be ready before app.js runs
+    document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
-        renderUsers(lastOnlineList);
-        setTimeout(scrollToBottom, 100);
     });
-
-    // Перенос строки и отправка
-    const inputField = document.getElementById("input");
-
-    inputField.addEventListener("keydown", (e) => {
-        // Если нажат Enter БЕЗ Shift
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault(); // Отменяем стандартный перенос строки
-            document.getElementById("form").dispatchEvent(new Event("submit")); // Вызываем отправку формы
-        }
-    });
-
-    // Автоматическое увеличение высоты при печати (опционально)
-    inputField.addEventListener("input", function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-    });
-
-    // ─── Звук уведомления ───
-    function playNotificationSound() {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const playTone = (freq, start, dur, vol) => {
-                const osc = ctx.createOscillator(), gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.type = "sine";
-                osc.frequency.setValueAtTime(freq, start);
-                gain.gain.setValueAtTime(0, start);
-                gain.gain.linearRampToValueAtTime(vol, start + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
-                osc.start(start); osc.stop(start + dur);
-            };
-            playTone(880,  ctx.currentTime,        0.15, 0.25);
-            playTone(1100, ctx.currentTime + 0.16, 0.22, 0.18);
-        } catch (e) {}
-    }
-
-    // ─── Toast ───
-    function showToast(from, text) {
-        document.getElementById("toastAvatar").textContent = from[0].toUpperCase();
-        document.getElementById("toastName").textContent   = from;
-        document.getElementById("toastText").textContent   = text;
-        toast.classList.add("show");
-        if (toastTimeout) clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => toast.classList.remove("show"), 4000);
-    }
-
-    toast.onclick = () => {
-        const name = document.getElementById("toastName").textContent;
-        if (name) {
-            privateWith = name;
-            showTab("private");
-            socket.emit("open private chat", { withUser: name });
-            socket.emit("get private history", { withUser: name });
-            openChat();
-        }
-        toast.classList.remove("show");
-    };
-
-    // ─── Helpers ───
-    const scrollToBottom = () => { messagesBox.scrollTop = messagesBox.scrollHeight; };
-    const isDesktop      = () => window.innerWidth >= 768;
-
-    function openChat() {
-        if (!isDesktop()) {
-            sidebar.classList.add("hidden");
-            chatWindow.classList.remove("hidden");
-            chatWindow.classList.add("flex");
-        }
-        setTimeout(scrollToBottom, 50);
-    }
-
-    document.getElementById("backBtn").onclick = () => {
-        socket.emit("close private chat");
-        hideTypingIndicator();
-        sidebar.classList.remove("hidden");
-        chatWindow.classList.add("hidden");
-        chatWindow.classList.remove("flex");
-    };
-
-    document.getElementById('emojiBtn').onclick = (e) => { e.stopPropagation(); emojiPickerContainer.classList.toggle('hidden'); };
-    emojiPicker.addEventListener('emoji-click', e => { input.value += e.detail.unicode; input.focus(); });
-    document.onclick = (e) => { if (!emojiPickerContainer.contains(e.target)) emojiPickerContainer.classList.add('hidden'); };
-
-    // ─── Render message с read receipt ───
-    function renderMessage(container, msg, meName) {
-        const isMe = (msg.user === meName || msg.from === meName);
-        const li   = document.createElement("li");
-        li.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} msg-anim w-full`;
-
-        if (msg.user === "Система") {
-            li.innerHTML = `<span class="text-[9px] text-slate-600 font-bold uppercase tracking-widest w-full text-center my-2">${msg.text}</span>`;
-        } else {
-            // Read receipt — только для исходящих приватных сообщений с id
-            const isPrivate = !!msg.id;
-            let receiptHtml = "";
-            if (isMe && isPrivate) {
-                const readClass = msg.read ? "read" : "unread";
-                const ticks     = msg.read ? "✓✓" : "✓";
-                receiptHtml = `<span class="read-status ${readClass}" data-msg-id="${msg.id}" title="${msg.read ? 'Прочитано' : 'Доставлено'}">${ticks}</span>`;
-            }
-
-            li.innerHTML = `
-                <span class="text-[9px] text-slate-500 mb-1 px-2">${isMe ? 'Вы' : (msg.user || msg.from)} • ${msg.time}</span>
-                <div class="flex items-end gap-1 -webkit-box-sizing: border-box; box-sizing: border-box; ${isMe ? 'flex-row-reverse' : ''}">
-                    <div class="p-3 px-4 text-sm ${isMe ? 'message-me text-white' : 'message-other text-slate-100'}">${msg.text}</div>
-                    ${receiptHtml}
-                </div>`;
-        }
-        if (msg.id) li.dataset.msgId = msg.id;
-        container.appendChild(li);
-        scrollToBottom();
-    }
-
-    // Обновить статус прочтения у конкретных сообщений
-    socket.on("messages read", ({ ids }) => {
-        ids.forEach(id => {
-            const receipt = document.querySelector(`.read-status[data-msg-id="${id}"]`);
-            if (receipt) {
-                receipt.classList.remove("unread");
-                receipt.classList.add("read");
-                receipt.textContent = "✓✓";
-                receipt.title = "Прочитано";
-            }
-        });
-    });
-
-    function showTab(tab) {
-        currentTab = tab;
-        document.querySelectorAll(".tabBtn").forEach(t => {
-            const active = t.dataset.tab === tab;
-            t.classList.toggle("bg-blue-600", active);
-            t.classList.toggle("text-white", active);
-            t.classList.toggle("text-slate-500", !active);
-        });
-        document.getElementById("messages").classList.toggle("hidden", tab !== "public");
-        document.getElementById("privateMessages").classList.toggle("hidden", tab !== "private");
-        document.getElementById("chatTitle").textContent = tab === "public" ? "Публичный чат" : (privateWith ? `Чат с ${privateWith}` : "Личные сообщения");
-        if (tab === "public") {
-            hideTypingIndicator();
-            socket.emit("close private chat");
-        }
-        setTimeout(scrollToBottom, 50);
-    }
-
-    document.querySelectorAll(".tabBtn").forEach(t => t.onclick = () => {
-        showTab(t.dataset.tab);
-        if (!isDesktop()) openChat();
-    });
-
-    socket.on("chat history", h => { document.getElementById("messages").innerHTML = ""; h.forEach(m => renderMessage(document.getElementById("messages"), m, username)); });
-    socket.on("chat message", m => renderMessage(document.getElementById("messages"), m, username));
-    socket.on("private history", ({ history }) => { document.getElementById("privateMessages").innerHTML = ""; history.forEach(m => renderMessage(document.getElementById("privateMessages"), m, username)); });
-    socket.on("private message", m => {
-        const isIncoming   = m.from !== username;
-        const isActiveChat = currentTab === "private" && privateWith === m.from;
-
-        if (isIncoming && !isActiveChat) { playNotificationSound(); showToast(m.from, m.text); }
-
-        // Показываем сообщение если это наш текущий чат
-        if (privateWith === m.from || m.from === username) {
-            renderMessage(document.getElementById("privateMessages"), m, username);
-        }
-
-        // Если мы уже смотрим чат с этим пользователем — сразу шлём "прочитано"
-        if (isIncoming && isActiveChat) {
-            socket.emit("open private chat", { withUser: m.from });
-        }
-    });
-
-    // ─── Typing indicator ───
-    function showTypingIndicator(from) {
-        if (currentTab !== "private" || privateWith !== from) return;
-        typingName.textContent = from;
-        typingIndicator.classList.remove("hidden");
-        scrollToBottom();
-        if (typingHideTimer) clearTimeout(typingHideTimer);
-        typingHideTimer = setTimeout(hideTypingIndicator, 4000);
-    }
-
-    function hideTypingIndicator() {
-        typingIndicator.classList.add("hidden");
-        if (typingHideTimer) { clearTimeout(typingHideTimer); typingHideTimer = null; }
-    }
-
-    socket.on("typing",      ({ from }) => showTypingIndicator(from));
-    socket.on("typing stop", ({ from }) => { if (privateWith === from) hideTypingIndicator(); });
-
-    // Отправка события "печатает"
-    input.addEventListener("input", () => {
-        if (currentTab !== "private" || !privateWith) return;
-
-        if (!isTyping) {
-            isTyping = true;
-            socket.emit("typing start", { to: privateWith });
-        }
-
-        if (typingTimeout) clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => {
-            isTyping = false;
-            socket.emit("typing stop", { to: privateWith });
-        }, 1500);
-    });
-
-    document.getElementById("form").onsubmit = (e) => {
-        e.preventDefault();
-        if (!input.value.trim()) return;
-
-        // Сбрасываем typing при отправке
-        if (isTyping && privateWith) {
-            isTyping = false;
-            if (typingTimeout) clearTimeout(typingTimeout);
-            socket.emit("typing stop", { to: privateWith });
-        }
-
-        if (currentTab === "private" && privateWith) socket.emit("private message", { to: privateWith, text: input.value });
-        else socket.emit("chat message", { text: input.value });
-        input.value = "";
-    };
-
-    document.getElementById("logoutBtn").onclick = () => location.reload();
 </script>
+<script src="app.js" defer></script>
 </body>
 </html>

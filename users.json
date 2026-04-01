@@ -15,6 +15,18 @@
     {
       "username": "Саша",
       "password": "$2b$10$nEEbK46Zm9Tw73UtM1757O4cUI.QuGzbNI8HzieWrfYKn14kUmwWK"
+    },
+    {
+      "username": "2",
+      "password": "$2b$10$F7JtVxLYunyUyV.xXQgUneXiFwbcBJ3fJpcM2j9ITqgLHYgOJoXTK"
+    },
+    {
+      "username": "1",
+      "password": "$2b$10$pNCwj6Ub0hW3eaa3rw664.spDbeq/BHRFv21JV7Srmw/SaBSlInBy"
+    },
+    {
+      "username": "3",
+      "password": "$2b$10$qTwO7jn0RZdDICycQHbl.uwJxVIdtce7Qf5JzHtMONfCIn9nqE2ju"
     }
   ]
 }
