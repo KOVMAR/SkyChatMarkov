@@ -15,6 +15,10 @@
     {
       "username": "Саша",
       "password": "$2b$10$nEEbK46Zm9Tw73UtM1757O4cUI.QuGzbNI8HzieWrfYKn14kUmwWK"
+    },
+    {
+      "username": "1",
+      "password": "$2b$10$UhtUYkyhW.VlbeSRP0hFY.kn.TypCxClpAuEgJZoaml0QVsztXeM2"
     }
   ]
 }

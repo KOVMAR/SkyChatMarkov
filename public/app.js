@@ -1,7 +1,6 @@
 /* ═══════════════════════════════════════════════════
    SkyChat — client JS  (all bugs fixed)
    ═══════════════════════════════════════════════════ */
-
 const socket = io({ transports: ['websocket'] });
 
 // ── DOM ──────────────────────────────────────────────
@@ -770,9 +769,10 @@ document.getElementById('sendVoiceBtn').onclick = () => {
 // FILE ATTACHMENT
 // ════════════════════════════════════════════════════
 document.getElementById('attachBtn').addEventListener('click', e => {
-    e.stopPropagation();
-    attachMenu.classList.toggle('hidden');
-    lucide.createIcons();
+    showToast('Система', 'Cкоро починим! 🛠️');
+    // e.stopPropagation();
+    // attachMenu.classList.toggle('hidden');
+    // lucide.createIcons();
 });
 
 attachMenu.querySelectorAll('button').forEach(btn => {
